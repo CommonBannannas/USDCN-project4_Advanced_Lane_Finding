@@ -1,3 +1,12 @@
+"""
+Baisc utils library for the Advanced Lane Detection to work
+****
+CREDIT:
+This is a compilation with some alterations from the original functions on:
+ https://github.com/jessicayung/self-driving-car-nd/tree/master/p4-advanced-lane-lines
+****
+Theese functions are helpling fuctions to preprocess the images and the script pipeline.py needs them to work.
+"""
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -15,6 +24,15 @@ def calib_undistort(img, objpoints, imgpoints):
     # Undistort image
     undist = cv2.undistort(img, mtx, dist, None, mtx)
     return undist
+
+def unwarp(img, src, dst):
+    h,w = img.shape[:2]
+    # use cv2.getPerspectiveTransform() to get M, the transform matrix, and Minv, the inverse
+    M = cv2.getPerspectiveTransform(src, dst)
+    Minv = cv2.getPerspectiveTransform(dst, src)
+    # use cv2.warpPerspective() to warp your image to a top-down view
+    warped = cv2.warpPerspective(img, M, (w,h), flags=cv2.INTER_LINEAR)
+    return warped, M, Minv
 
 def app_thresh(image, xgrad_thresh=(20,100), s_thresh=(170,255)):
 
@@ -101,13 +119,13 @@ def collapse_into_single_arrays(leftx, lefty, rightx, righty):
 def hist_pixels(warped_thresholded_image, offset=50, steps=6,
                      window_radius=200, medianfilt_kernel_size=51,
                      horizontal_offset=50):
-    
+
     # Initialise arrays
     left_x = []
     left_y = []
     right_x = []
     right_y = []
-    
+
     # Parameters
     height = warped_thresholded_image.shape[0]
     offset_height = height - offset
