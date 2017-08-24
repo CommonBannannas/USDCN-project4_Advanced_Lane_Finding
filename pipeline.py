@@ -28,17 +28,18 @@ def image_pipeline(file, filepath=False):
     # Parameters
     imshape = raw.shape
 
-    src = np.float32(
-        [[120, 720],
-         [550, 470],
-         [700, 470],
-         [1160, 720]])
 
-    dst = np.float32(
-        [[200,720],
-         [200,0],
-         [1080,0],
-         [1080,720]])
+    h,w = raw.shape[:2]
+
+    src = np.float32([(575,464),
+                  (707,464),
+                  (258,682),
+                  (1049,682)])
+
+    dst = np.float32([(280,0),
+                  (w-250,0),
+                  (280,h),
+                  (w-250,h)])
 
     M = cv2.getPerspectiveTransform(src, dst)
     Minv = cv2.getPerspectiveTransform(dst, src)
@@ -71,57 +72,27 @@ def image_pipeline(file, filepath=False):
 
     while have_fit == False:
         combined_binary = app_thresh(image, xgrad_thresh=xgrad_thresh_temp, s_thresh=s_thresh_temp)
-    #    plt.imshow(combined_binary, cmap="gray")
-
-        # Plotting thresholded images
-        """
-        f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
-        ax1.set_title('Option 1')
-        ax1.imshow(combined, cmap="gray")
-
-        ax2.set_title('Option 2: Combined S channel and gradient thresholds')
-        ax2.imshow(combined_binary, cmap='gray')
-        """
-
         # Warp onto birds-eye-view
         # Previous region-of-interest mask's function is absorbed by the warp
         warped = cv2.warpPerspective(combined_binary, M, (imshape[1], imshape[0]), flags=cv2.INTER_LINEAR)
-        # plt.imshow(warped, cmap="gray")
-
         # Histogram and get pixels in window
-
         leftx, lefty, rightx, righty = hist_pixels(warped, horizontal_offset=40)
-
-        plt.imshow(warped, cmap="gray")
-
         if len(leftx) > 1 and len(rightx) > 1:
             have_fit = True
         xgrad_thresh_temp = (xgrad_thresh_temp[0] - 2, xgrad_thresh_temp[1] + 2)
         s_thresh_temp = (s_thresh_temp[0] - 2, s_thresh_temp[1] + 2)
 
     left_fit, left_coeffs = fit_second_order_poly(lefty, leftx, return_coeffs=True)
-    #print("Left coeffs:", left_coeffs)
-    #print("righty[0]: ,", righty[0], ", rightx[0]: ", rightx[0])
     right_fit, right_coeffs = fit_second_order_poly(righty, rightx, return_coeffs=True)
-    #print("Right coeffs: ", right_coeffs)
 
-    # Plot data
-    """
-    plt.plot(left_fit, lefty, color='green', linewidth=3)
-    plt.plot(right_fit, righty, color='green', linewidth=3)
-    plt.imshow(warped, cmap="gray")
-    """
-
-    # Determine curvature of the lane
-    # Define y-value where we want radius of curvature
-    # I'll choose the maximum y-value, corresponding to the bottom of the image
+    # curvature of the lane
+    # y-value where we want radius of curvature
     y_eval = 500
     left_curverad = np.absolute(((1 + (2 * left_coeffs[0] * y_eval + left_coeffs[1])**2) ** 1.5) \
                     /(2 * left_coeffs[0]))
     right_curverad = np.absolute(((1 + (2 * right_coeffs[0] * y_eval + right_coeffs[1]) ** 2) ** 1.5) \
                      /(2 * right_coeffs[0]))
-    #print("Left lane curve radius: ", left_curverad)
-    #print("Right lane curve radius: ", right_curverad)
+
     curvature = (left_curverad + right_curverad) / 2
     min_curverad = min(left_curverad, right_curverad)
 
@@ -137,22 +108,17 @@ def image_pipeline(file, filepath=False):
     # Det vehicle position wrt centre
     centre = center(719, left_coeffs, right_coeffs)
 
-    ## 7. Warp the detected lane boundaries back onto the original image.
-
-    #print("Left coeffs: ", left_coeffs)
-    #print("Right fit: ", right_coeffs)
+    # warp the detected lane boundaries back onto the original image.
     polyfit_left = draw_poly(blank_canvas, lane_poly, left_coeffs, 30)
     polyfit_drawn = draw_poly(polyfit_left, lane_poly, right_coeffs, 30)
 
-    # Convert to colour and highlight lane line area
+    # convert to color and highlight lane line area
     trace = colour_canvas
     trace[polyfit_drawn > 1] = [0,0,255]
-    #print("polyfit shape: ", polyfit_drawn.shape)
+
     area = highlight_lane_line_area(blank_canvas, left_coeffs, right_coeffs)
-    trace[area == 1] = [0,255,0]
+    trace[area == 1] = [0,75,255]
     lane_lines = cv2.warpPerspective(trace, Minv, (imshape[1], imshape[0]), flags=cv2.INTER_LINEAR)
-
-
     combined_img = cv2.add(lane_lines, image)
     add_figures_to_image(combined_img, curvature=curvature,
                          vehicle_position=centre,

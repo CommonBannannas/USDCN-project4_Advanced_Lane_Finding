@@ -261,7 +261,7 @@ def highlight_lane_line_area(mask_template, left_poly, right_poly, start_y=0, en
 
     return area_mask
 
-def draw_poly(img, poly, poly_coeffs, steps, color=[255, 0, 0], thickness=10, dashed=False):
+def draw_poly(img, poly, poly_coeffs, steps, color=[255, 255, 0], thickness=10, dashed=False):
     img_height = img.shape[0]
     pixels_per_step = img_height // steps
 
