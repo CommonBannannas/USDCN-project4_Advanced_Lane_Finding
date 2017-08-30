@@ -20,9 +20,14 @@ The goals / steps of this project are the following:
 
 [image1]: ./writeup_imgs/original_undist.png "Undistorted"
 
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
+[image2]: ./writeup_imgs/chessboard.png "Chessboard Corners"
+
+[image3]: ./writeup_imgs/test_undist.png "Image Unidstorted"
+
+[image4]: ./writeup_imgs/combined_binary.png "Combined binary thresholds"
+
+
+
 [image5]: ./examples/color_fit_lines.jpg "Fit Visual"
 [image6]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
@@ -40,7 +45,35 @@ The goals / steps of this project are the following:
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-As a first step for my solution, I computed the camera matrix and distortion coefficients:
+The first step was to find the chessboard corners:
+
+````
+nx = 9 
+ny = 6 
+images = glob.glob("camera_cal/calibration*.jpg")
+objpoints = []
+imgpoints = []
+objp = np.zeros((nx*ny,3), np.float32)
+objp[:,:2] = np.mgrid[0:nx,0:ny].T.reshape(-1,2)
+
+for fname in images:
+    
+    img = cv2.imread(fname)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, corners = cv2.findChessboardCorners(gray, (nx, ny), None)
+    
+    if ret == True:
+        
+        imgpoints.append(corners)
+        objpoints.append(objp)
+        # Draw and display the corners
+        cv2.drawChessboardCorners(img, (nx, ny), corners, ret)
+       
+````
+
+![Chessboard Corners][image2]
+
+As a second step for my solution, I computed the camera matrix and distortion coefficients and then saved them to a pickle so I can read them on the image pipeline:
 
 ````
 img = cv2.imread('camera_cal/calibration1.jpg')
@@ -62,21 +95,48 @@ ax2.set_title('Undistorted', fontsize=15)
 ![Original Vs Unidstorted][image1]
 
 
-
-
-
 ### Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
-
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+After calibrating the camera I tested the unidstortion on the test images:
 
 ![alt text][image3]
+
+
+#### 2. Describe how you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+
+The process to obtain a binary image was:
+* Convert the image to grayscale
+* Take the absolute sobel derivative of the image with respect to x
+* Normalize the sobel derivative
+* Threshold the gradient
+* Convert the image to HLS c-space and separate the S channel
+* Threshold the S channel
+* Combine the two binaries
+
+````
+def app_thresh(image, xgrad_thresh=(20,100), s_thresh=(170,255)):
+    
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)    
+    sobelx = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 1, 0))    
+    n_sobel = np.uint8(255*sobelx/np.max(sobelx))    
+    sxbinary = np.zeros_like(n_sobel)
+    sxbinary[(n_sobel >= xgrad_thresh[0]) & (n_sobel <= xgrad_thresh[1])] = 1
+    hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    s_channel = hls[:,:,2]
+    s_binary = np.zeros_like(s_channel)
+    s_binary[(s_channel >= s_thresh[0]) & (s_channel <= s_thresh[1])] = 1
+    color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary))
+    combined_binary = np.zeros_like(sxbinary)
+    combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
+    return combined_binary
+````
+
+The result was an image like this:
+
+![alt text][image4]
+
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 

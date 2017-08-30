@@ -1,11 +1,9 @@
 """
-Baisc utils library for the Advanced Lane Detection to work
-****
-CREDIT:
-This is a compilation with some alterations from the original functions on:
- https://github.com/jessicayung/self-driving-car-nd/tree/master/p4-advanced-lane-lines
-****
-Theese functions are helpling fuctions to preprocess the images and the script pipeline.py needs them to work.
+utils library for the advanced lane detection pipeline
+***CREDIT***:
+This is a compilation of some fuctions found on:
+https://github.com/jessicayung/self-driving-car-nd/blob/master/p4-advanced-lane-lines/helperfunctions.py
+with some alterations.
 """
 import numpy as np
 import cv2
@@ -16,9 +14,8 @@ import pickle
 from scipy import signal
 
 
-
 def calib_undistort(img, objpoints, imgpoints):
-    """Returns undistorted image."""
+    """Returns undistorted image"""
     # Calibrate camera
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img.shape[0:2], None, None)
     # Undistort image
@@ -66,6 +63,7 @@ def roi(img, vertices):
     Returns the object of intetest. Applies an image mask.
     Only keeps the region of the image defined by the polygon
     formed from vertices. The rest of the image is set to black.
+    *** NOT USED IN pipeline.py ***
     """
     # blank mask
     mask = np.zeros_like(img)
@@ -297,14 +295,12 @@ def add_figures_to_image(img, curvature, vehicle_position, min_curvature, left_c
     curvature = curvature / 128 * 3.7
     min_curvature = min_curvature / 128 * 3.7
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(img, 'Radius of Curvature = %d(m)' % curvature, (50, 50), font, 1, (255, 255, 255), 2)
+    font = cv2.FONT_HERSHEY_PLAIN
+    cv2.putText(img, 'estimated curvature : %d(m)' % curvature, (50, 50), font, 1, (255, 255, 255), 2)
     left_or_right = "left" if vehicle_position < 0 else "right"
-    cv2.putText(img, 'Vehicle is %.2fm %s of center' % (np.abs(vehicle_position), left_or_right), (50, 100), font, 1,
+    cv2.putText(img, 'vehicle %.2fm %s of center' % (np.abs(vehicle_position), left_or_right), (50, 100), font, 1,
                 (255, 255, 255), 2)
-    # cv2.putText(img, 'Min Radius of Curvature = %d(m)' % min_curvature, (50, 150), font, 1, (255, 255, 255), 2)
-    # cv2.putText(img, 'Left poly coefficients = %.3f %.3f %.3f' % (left_coeffs[0], left_coeffs[1], left_coeffs[2]), (50, 200), font, 1, (255, 255, 255), 2)
-    # cv2.putText(img, 'Right poly coefficients = %.3f %.3f %.3f' % (right_coeffs[0], right_coeffs[1], right_coeffs[2]), (50, 250), font, 1, (255, 255, 255), 2)
+
 
 def plausible_curvature(left_curverad, right_curverad):
     if right_curverad < 500 or left_curverad < 500:
