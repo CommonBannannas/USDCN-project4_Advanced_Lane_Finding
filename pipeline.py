@@ -90,11 +90,11 @@ def image_pipeline(file, filepath=False):
     curvature = (left_curve_radius + right_curve_radius) / 2
     min_curve_radius = min(left_curve_radius, right_curve_radius)
 
-    if not plausible_curvature(left_curve_radius, right_curve_radius) or \
-        not plausible_continuation_of_traces(left_coeffs, right_coeffs, past_left_coefs, past_right_coefs):
+    if not continuation_of_traces(left_coeffs, right_coeffs, past_left_coefs, past_right_coefs):
             if past_left_coefs is not None and past_right_coefs is not None:
                 left_coeffs = past_left_coefs
                 right_coeffs = past_right_coefs
+
 
     past_left_coefs = left_coeffs
     past_right_coefs = right_coeffs

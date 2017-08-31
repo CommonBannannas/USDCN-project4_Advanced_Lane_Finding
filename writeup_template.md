@@ -23,7 +23,7 @@ The goals / steps of this project are the following:
 [image3]: ./writeup_imgs/test_udist.png "Image Unidstorted"
 [image4]: ./writeup_imgs/combined_binary.png "Combined binary thresholds"
 [image5]: ./writeup_imgs/undist_warped.png "Unidstored and warped"
-[image6]: ./writeup_imgs/image_pipeline.png "Pipeline image"
+[image6]: ./writeup_imgs/image_pipeline.png "Image Pipeline"
 
 [video1]: ./project_video.mp4 "Video"
 
@@ -322,7 +322,7 @@ curvature = (left_curve_radius + right_curve_radius) / 2
 #### 6. Example image of my result.
 The result was a image with the lane area identified:
 
-![alt text][image6]
+![Image Pipeline][image6]
 
 ---
 

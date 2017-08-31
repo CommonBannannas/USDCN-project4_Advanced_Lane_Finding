@@ -1,9 +1,9 @@
 """
 utils library for the advanced lane detection pipeline
-***CREDIT***:
+Reference:
 This is a compilation of some fuctions found on:
 https://github.com/jessicayung/self-driving-car-nd/blob/master/p4-advanced-lane-lines/helperfunctions.py
-with some alterations.
+with some alterations and tweaks.
 """
 import numpy as np
 import cv2
@@ -15,7 +15,9 @@ from scipy import signal
 
 
 def calib_undistort(img, objpoints, imgpoints):
-    """Returns undistorted image"""
+    """Returns undistorted image
+    *** NOT USED ***
+    """
     # Calibrate camera
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img.shape[0:2], None, None)
     # Undistort image
@@ -23,6 +25,9 @@ def calib_undistort(img, objpoints, imgpoints):
     return undist
 
 def unwarp(img, src, dst):
+    """Returns unwarped image
+    *** NOT USED ***
+    """
     h,w = img.shape[:2]
     # use cv2.getPerspectiveTransform() to get M, the transform matrix, and Minv, the inverse
     M = cv2.getPerspectiveTransform(src, dst)
@@ -63,7 +68,7 @@ def roi(img, vertices):
     Returns the object of intetest. Applies an image mask.
     Only keeps the region of the image defined by the polygon
     formed from vertices. The rest of the image is set to black.
-    *** NOT USED IN pipeline.py ***
+    *** NOT USED ***
     """
     # blank mask
     mask = np.zeros_like(img)
@@ -293,22 +298,13 @@ def add_figures_to_image(img, curvature, vehicle_position, min_curvature, left_c
     # Convert from pixels to meters
     vehicle_position = vehicle_position / 12800 * 3.7
     curvature = curvature / 128 * 3.7
-    min_curvature = min_curvature / 128 * 3.7
-
     font = cv2.FONT_HERSHEY_PLAIN
-    cv2.putText(img, 'estimated curvature : %d(m)' % curvature, (50, 50), font, 1, (255, 255, 255), 2)
-    left_or_right = "left" if vehicle_position < 0 else "right"
-    cv2.putText(img, 'vehicle %.2fm %s of center' % (np.abs(vehicle_position), left_or_right), (50, 100), font, 1,
+    cv2.putText(img, 'ESTIMATED CURVATURE RADIUS : %d(m)' % curvature, (50, 50), font, 1, (255, 255, 255), 2)
+    left_or_right = "LEFT" if vehicle_position < 0 else "RIGHT"
+    cv2.putText(img, 'VEHICLE %.2fm %s OF CENTER' % (np.abs(vehicle_position), left_or_right), (50, 100), font, 1,
                 (255, 255, 255), 2)
 
-
-def plausible_curvature(left_curverad, right_curverad):
-    if right_curverad < 500 or left_curverad < 500:
-        return False
-    else:
-        return True
-
-def plausible_continuation_of_traces(left_coeffs, right_coeffs, prev_left_coeffs, prev_right_coeffs):
+def continuation_of_traces(left_coeffs, right_coeffs, prev_left_coeffs, prev_right_coeffs):
     if prev_left_coeffs == None or prev_right_coeffs == None:
         return True
     b_left = np.absolute(prev_left_coeffs[1] - left_coeffs[1])
