@@ -321,6 +321,7 @@ curvature = (left_curve_radius + right_curve_radius) / 2
 
 #### 6. Example image of my result.
 The result was a image with the lane area identified:
+
 ![alt text][image6]
 
 ---
