@@ -189,9 +189,7 @@ By combining the step 2 and this step (4) I was able to fit a polynomial most of
 
 
 ````
-def hist_pixels(warped_thresholded_image, offset=50, steps=6,
-window_radius=200, medianfilt_kernel_size=51,
-horizontal_offset=50):
+def hist_pixels(warped_thresholded_image, offset=50, steps=6, window_radius=200, medianfilt_kernel_size=51, horizontal_offset=50):
 
     
     left_x = []
