@@ -19,32 +19,26 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./writeup_imgs/original_undist.png "Undistorted"
-
 [image2]: ./writeup_imgs/chessboard.png "Chessboard Corners"
-
 [image3]: ./writeup_imgs/test_udist.png "Image Unidstorted"
-
 [image4]: ./writeup_imgs/combined_binary.png "Combined binary thresholds"
-
-
-
 [image5]: ./writeup_imgs/undist_warped.png "Unidstored and warped"
+[image6]: ./writeup_imgs/image_pipeline.png "Pipeline image"
 
-[image6]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
 
-## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
+## [Rubric Points](https://review.udacity.com/#!/rubrics/571/view)
 
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
 
 ---
 
-### Writeup / README
+### Writeup
 
 
 ### Camera Calibration
 
-#### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
+#### 1. Camera matrix and distortion coefficients.
 
 The first step was to find the chessboard corners:
 
@@ -96,16 +90,16 @@ ax2.set_title('Undistorted', fontsize=15)
 ![Original Vs Unidstorted][image1]
 
 
-### Pipeline (single images)
+### Pipeline (images)
 
-#### 1. Provide an example of a distortion-corrected image.
+#### 1. Distortion-corrected image.
 
 After calibrating the camera I tested the unidstortion on the test images:
 
 ![alt text][image3]
 
 
-#### 2. Describe how you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+#### 2. Color transforms and gradients to create a thresholded binary image. 
 
 The process to obtain a binary image was:
 * Convert the image to grayscale
@@ -139,9 +133,29 @@ The result was an image like this:
 ![alt text][image4]
 
 
-#### 3. Describe how you performed a perspective transform and provide an example of a transformed image.
+Sometimes the right lane was not identified, I tried by adjusting a bit the thresholds with a while loop:
 
-My transformation of perspective was hard-coded the following way:
+````
+xgrad_thresh_temp = (40,100)
+s_thresh_temp=(125,255)
+
+    while fits == False:
+        combined_binary = app_thresh(image, xgrad_thresh=xgrad_thresh_temp, s_thresh=s_thresh_temp)
+        warped = cv2.warpPerspective(combined_binary, M, (imshape[1], imshape[0]), flags=cv2.INTER_LINEAR)
+        leftx, lefty, rightx, righty = hist_pixels(warped, horizontal_offset=40)
+        if len(leftx) > 1 and len(rightx) > 1:
+            fits = True
+        xgrad_thresh_temp = (xgrad_thresh_temp[0] - 2, xgrad_thresh_temp[1] + 2)
+        s_thresh_temp = (s_thresh_temp[0] - 2, s_thresh_temp[1] + 2)
+
+    left_fit, left_coeffs = fit_second_order_poly(lefty, leftx, return_coeffs=True)
+    right_fit, right_coeffs = fit_second_order_poly(righty, rightx, return_coeffs=True)
+
+````
+
+#### 3. Perspective transform.
+
+My transformation of perspective was hard-coded by trial and error and it's final form was:
 ````
 h,w = raw.shape[:2]
 
@@ -169,34 +183,185 @@ The transformation on the image was:
 ![alt text][image5]
 
 
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+#### 4. Identify lane-line pixels and fit their positions with a polynomial
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+By combining the step 2 and this step (4) I was able to fit a polynomial most of the frames of the video and was able to reduce the flickering by evaluating if the detected lanes were similar to the previous lanes. If they were not similar, I re used the previous lanes. (see discussion section).
 
 
+````
+def hist_pixels(warped_thresholded_image, offset=50, steps=6,
+window_radius=200, medianfilt_kernel_size=51,
+horizontal_offset=50):
 
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+    
+    left_x = []
+    left_y = []
+    right_x = []
+    right_y = []
 
-I did this in lines # through # in my code in `my_other_file.py`
+    height = warped_thresholded_image.shape[0]
+    offset_height = height - offset
+    width = warped_thresholded_image.shape[1]
+    half_frame = warped_thresholded_image.shape[1] // 2
+    pixels_per_step = offset_height / steps
 
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+    for step in range(steps):
+        left_x_window_centres = []
+        right_x_window_centres = []
+        y_window_centres = []
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+        window_start_y = height - (step * pixels_per_step) + offset
+        window_end_y = window_start_y - pixels_per_step + offset
 
+        
+        histogram = np.sum(warped_thresholded_image[int(window_end_y):int(window_start_y), int(horizontal_offset):int(width - horizontal_offset)], axis=0)
+
+        
+        histogram_smooth = signal.medfilt(histogram, medianfilt_kernel_size)
+
+        left_peaks = np.array(signal.find_peaks_cwt(histogram_smooth[:half_frame], np.arange(1, 10)))
+        right_peaks = np.array(signal.find_peaks_cwt(histogram_smooth[half_frame:], np.arange(1, 10)))
+        if len(left_peaks) > 0:
+            left_peak = max(left_peaks)
+            left_x_window_centres.append(left_peak)
+
+        if len(right_peaks) > 0:
+            right_peak = max(right_peaks) + half_frame
+            right_x_window_centres.append(right_peak)
+
+        if len(left_peaks) > 0 or len(right_peaks) > 0:
+            y_window_centres.append((window_start_y + window_end_y) // 2)
+
+        # pixels left window
+        for left_x_centre, y_centre in zip(left_x_window_centres, y_window_centres):
+            left_x_additional, left_y_additional = get_pixel_in_window(warped_thresholded_image, left_x_centre,
+                                                                       y_centre, window_radius)
+
+            left_x.append(left_x_additional)
+            left_y.append(left_y_additional)
+            
+        for right_x_centre, y_centre in zip(right_x_window_centres, y_window_centres):
+            right_x_additional, right_y_additional = get_pixel_in_window(warped_thresholded_image, right_x_centre,
+                                                                         y_centre, window_radius)
+            right_x.append(right_x_additional)
+            right_y.append(right_y_additional)
+
+    if len(right_x) == 0 or len(left_x) == 0:
+        print("Init no peaks for left or right")
+        print("left_x: ", left_x)
+        print("right_x: ", right_x)
+
+        horizontal_offset = 0
+
+        left_x = []
+        left_y = []
+        right_x = []
+        right_y = []
+
+        for step in range(steps):
+            left_x_window_centres = []
+            right_x_window_centres = []
+            y_window_centres = []
+
+            
+            window_start_y = height - (step * pixels_per_step) + offset
+            window_end_y = window_start_y - pixels_per_step + offset
+
+            
+            histogram = np.sum(warped_thresholded_image[int(window_end_y):int(window_start_y),
+                               int(horizontal_offset):int(width - horizontal_offset)], axis=0)
+
+            histogram_smooth = signal.medfilt(histogram, medianfilt_kernel_size)
+
+            
+            left_peaks = np.array(signal.find_peaks_cwt(histogram_smooth[:half_frame], np.arange(1, 10)))
+            right_peaks = np.array(signal.find_peaks_cwt(histogram_smooth[half_frame:], np.arange(1, 10)))
+            if len(left_peaks) > 0:
+                left_peak = max(left_peaks)
+                left_x_window_centres.append(left_peak)
+
+            if len(right_peaks) > 0:
+                right_peak = max(right_peaks) + half_frame
+                right_x_window_centres.append(right_peak)
+
+            if len(left_peaks) > 0 or len(right_peaks) > 0:
+                y_window_centres.append((window_start_y + window_end_y) // 2)
+
+            for left_x_centre, y_centre in zip(left_x_window_centres, y_window_centres):
+                left_x_additional, left_y_additional = get_pixel_in_window(warped_thresholded_image, left_x_centre,
+                                                                           y_centre, window_radius)
+
+                left_x.append(left_x_additional)
+                left_y.append(left_y_additional)
+
+            for right_x_centre, y_centre in zip(right_x_window_centres, y_window_centres):
+                right_x_additional, right_y_additional = get_pixel_in_window(warped_thresholded_image, right_x_centre,
+                                                                             y_centre, window_radius)
+
+                right_x.append(right_x_additional)
+                right_y.append(right_y_additional)
+
+    return collapse_into_single_arrays(left_x, left_y, right_x, right_y)
+    
+````
+
+
+#### 5. Radius of curvature of the lane and the position of the vehicle with respect to center.
+
+To calculate the radius of curvature:
+````
+y_ev = 500
+left_curve_radius = np.absolute(((1 + (2 * left_coeffs[0] * y_ev + left_coeffs[1])**2) ** 1.5) \
+/(2 * left_coeffs[0]))
+right_curve_radius = np.absolute(((1 + (2 * right_coeffs[0] * y_ev + right_coeffs[1]) ** 2) ** 1.5) \
+/(2 * right_coeffs[0]))
+
+curvature = (left_curve_radius + right_curve_radius) / 2
+````
+
+#### 6. Example image of my result.
+The result was a image with the lane area identified:
 ![alt text][image6]
 
 ---
 
 ### Pipeline (video)
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+#### 1. Final video output.
 
 Here's a [link to my video result](./project_video.mp4)
+
+
 
 ---
 
 ### Discussion
 
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+* The first problem I faced was extreme wobbling, in particular with the frames that had tree shadows on the pavement. To make the detection more robust I used a function to evaluate the found lanes. 
+
+````
+def continuation_of_traces(left_coeffs, right_coeffs, prev_left_coeffs, prev_right_coeffs):
+   if prev_left_coeffs == None or prev_right_coeffs == None:
+      return True
+   b_left = np.absolute(prev_left_coeffs[1] - left_coeffs[1])
+   b_right = np.absolute(prev_right_coeffs[1] - right_coeffs[1])
+   if b_left > 0.5 or b_right > 0.5:
+      return False
+    else:
+      return True
+
+````
+on the image pipeline I used the past coefficients to plot the detected lanes if the lanes were too different (lanes dont change much from frame to frame).
+
+````
+   if not continuation_of_traces(left_coeffs, right_coeffs, past_left_coefs, past_right_coefs):
+      if past_left_coefs is not None and past_right_coefs is not None:
+         left_coeffs = past_left_coefs
+         right_coeffs = past_right_coefs
+         
+````
+* Another problem was too much noise in the binary image generated by the thresholds on the X-gradient. To fix this I set the thresholds to (40, 100).
+
+* Finally, to make the detection more robust more image filters can be applied.
+
